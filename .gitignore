@@ -1,0 +1,6 @@
+.env
+output
+raw_data
+.idea
+.venv
+__pycache__
