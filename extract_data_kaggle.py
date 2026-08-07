@@ -4,6 +4,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+token = os.getenv("KAGGLE_API_TOKEN")
+
 #create raw data folder
 current_path = os.getcwd()
 raw_data_path = os.path.join(current_path, "raw_data")
@@ -18,6 +20,3 @@ api.dataset_download_files(
     path=raw_data_path,
     unzip=True
 )
-
-
-
