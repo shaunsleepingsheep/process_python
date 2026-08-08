@@ -49,8 +49,25 @@ def get_side_panel_params(group, technique):
             params["margin"] = st.slider("Margin (px)", 0, 100, 10)
         elif technique == "Khử nhiễu":
             params["method"] = st.selectbox("Phương pháp", ["median", "gaussian", "nlm"])
+            if params["method"] == "gaussian":
+                params["gaussian_ksize"] = st.slider("Kernel Gaussian", 3, 15, 5, step=2)
+            elif params["method"] == "median":
+                params["median_ksize"] = st.slider("Kernel Median", 3, 15, 5, step=2)
+            elif params["method"] == "nlm":
+                params["nlm_h"] = st.slider("Cường độ khử nhiễu (h)", 1, 30, 10)
         elif technique == "Tách biên":
             params["method"] = st.selectbox("Phương pháp", ["canny", "sobel", "laplacian"])
+            if params["method"] == "canny":
+                params["canny_low"] = st.slider("Ngưỡng dưới", 0, 255, 50)
+                params["canny_high"] = st.slider("Ngưỡng trên", 0, 255, 150)
+            elif params["method"] == "sobel":
+                params["sobel_ksize"] = st.select_slider("Kích thước kernel Sobel", options=[1, 3, 5, 7], value=3)
+            elif params["method"] == "laplacian":
+                params["laplacian_ksize"] = st.select_slider("Kích thước kernel Laplacian", options=[1, 3, 5, 7], value=3)
+        elif technique == "Trừ nền":
+            params["morph_kernel_size"] = st.slider(
+                "Kích thước kernel morphology (khi không có mask)", 3, 21, 7, step=2
+            )
     else:
         if technique == "CLAHE":
             params["clip_limit"] = st.slider("Clip limit", 0.5, 5.0, 2.0, 0.1)
@@ -61,6 +78,11 @@ def get_side_panel_params(group, technique):
         elif technique == "Unsharp mask":
             params["sigma"] = st.slider("Sigma", 0.1, 5.0, 2.0, 0.1)
             params["amount"] = st.slider("Amount", 0.1, 3.0, 1.5, 0.1)
+        elif technique == "Pipeline đề xuất":
+            params["clip_limit"] = st.slider("Clip limit", 0.5, 5.0, 2.0, 0.1)
+            tile = st.slider("Kích thước tile", 2, 16, 8)
+            params["tile_grid_size"] = (tile, tile)
+            params["median_ksize"] = st.slider("Kernel median cuối", 1, 9, 3, step=2)
     return params
 
 def apply_technique(img, mask, group, technique, params):
@@ -72,11 +94,22 @@ def apply_technique(img, mask, group, technique, params):
         if technique == "Cắt":
             return ip.crop_image(img, mask, margin=params["margin"])
         if technique == "Khử nhiễu":
-            return ip.denoise_image(img, params["method"])
+            return ip.denoise_image(
+                img, params["method"],
+                gaussian_ksize=params.get("gaussian_ksize", 5),
+                median_ksize=params.get("median_ksize", 5),
+                nlm_h=params.get("nlm_h", 10),
+            )
         if technique == "Tách biên":
-            return ip.edge_detect(img, params["method"])
+            return ip.edge_detect(
+                img, params["method"],
+                canny_low=params.get("canny_low", 50),
+                canny_high=params.get("canny_high", 150),
+                sobel_ksize=params.get("sobel_ksize", 3),
+                laplacian_ksize=params.get("laplacian_ksize", 3),
+            )
         if technique == "Trừ nền":
-            return ip.background_subtract(img, mask)
+            return ip.background_subtract(img, mask, morph_kernel_size=params.get("morph_kernel_size", 7))
     else:
         if technique == "Histogram Eq":
             return ip.hist_eq(img)
@@ -87,7 +120,12 @@ def apply_technique(img, mask, group, technique, params):
         if technique == "Unsharp mask":
             return ip.unsharp_mask(img, sigma=params["sigma"], amount=params["amount"])
         if technique == "Pipeline đề xuất":
-            return ip.recommended_pipeline(img)
+            return ip.recommended_pipeline(
+                img,
+                clip_limit=params.get("clip_limit", 2.0),
+                tile_grid_size=params.get("tile_grid_size", (8, 8)),
+                median_ksize=params.get("median_ksize", 3),
+            )
     raise ValueError(f"Không rõ kỹ thuật: {technique}")
 
 # Sidebar: nguồn ảnh

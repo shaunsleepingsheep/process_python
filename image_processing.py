@@ -34,31 +34,32 @@ def crop_image(img, mask=None, margin: int = 10):
         half_w, half_h = int(w * 0.4), int(h * 0.4)
         return img[cy - half_h:cy + half_h, cx - half_w:cx + half_w]
 
-def denoise_image(img, method: str = "median"):
+def denoise_image(img, method: str = "median", gaussian_ksize: int = 5, median_ksize: int = 5, nlm_h: float = 10):
     """Khử nhiễu. method: 'gaussian' | 'median' | 'nlm' (Non-local Means)."""
     if method == "gaussian":
-        return cv2.GaussianBlur(img, (5, 5), 0)
+        return cv2.GaussianBlur(img, (gaussian_ksize, gaussian_ksize), 0)
     elif method == "median":
-        return cv2.medianBlur(img, 5)
+        return cv2.medianBlur(img, median_ksize)
     elif method == "nlm":
-        return cv2.fastNlMeansDenoising(img, h=10)
+        return cv2.fastNlMeansDenoising(img, h=nlm_h)
     raise ValueError(method)
 
-def edge_detect(img, method: str = "canny"):
+def edge_detect(img, method: str = "canny", canny_low: int = 50, canny_high: int = 150,
+                 sobel_ksize: int = 3, laplacian_ksize: int = 3):
     """Tách biên. method: 'canny' | 'sobel' | 'laplacian'"""
     if method == "canny":
-        return cv2.Canny(img, 50, 150)
+        return cv2.Canny(img, canny_low, canny_high)
     elif method == "sobel":
-        sx = cv2.Sobel(img, cv2.CV_64F, 1, 0, ksize=3)
-        sy = cv2.Sobel(img, cv2.CV_64F, 0, 1, ksize=3)
+        sx = cv2.Sobel(img, cv2.CV_64F, 1, 0, ksize=sobel_ksize)
+        sy = cv2.Sobel(img, cv2.CV_64F, 0, 1, ksize=sobel_ksize)
         mag = cv2.magnitude(sx, sy)
         return cv2.convertScaleAbs(mag)
     elif method == "laplacian":
-        lap = cv2.Laplacian(img, cv2.CV_64F, ksize=3)
+        lap = cv2.Laplacian(img, cv2.CV_64F, ksize=laplacian_ksize)
         return cv2.convertScaleAbs(lap)
     raise ValueError(method)
 
-def background_subtract(img, mask=None):
+def background_subtract(img, mask=None, morph_kernel_size: int = 7):
     """Tách nền: dùng mask phổi có sẵn nếu có, ngược lại dùng Otsu threshold + morphology."""
     h, w = img.shape[:2]
     if mask is not None:
@@ -66,7 +67,7 @@ def background_subtract(img, mask=None):
         return cv2.bitwise_and(img, img, mask=mask_resized)
     else:
         _, otsu_mask = cv2.threshold(img, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7))
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (morph_kernel_size, morph_kernel_size))
         otsu_mask = cv2.morphologyEx(otsu_mask, cv2.MORPH_CLOSE, kernel)
         return cv2.bitwise_and(img, img, mask=otsu_mask)
 
@@ -93,7 +94,7 @@ def unsharp_mask(img, sigma: float = 2.0, amount: float = 1.5):
     sharpened = cv2.addWeighted(img, 1 + amount, blurred, -amount, 0)
     return sharpened
 
-def recommended_pipeline(img):
+def recommended_pipeline(img, clip_limit: float = 2.0, tile_grid_size: tuple = (8, 8), median_ksize: int = 3):
     """CLAHE (tăng tương phản cục bộ) + khử nhiễu nhẹ - tránh khuếch đại nhiễu quá mức."""
-    enhanced = clahe_enhance(img)
-    return cv2.medianBlur(enhanced, 3)
+    enhanced = clahe_enhance(img, clip_limit=clip_limit, tile_grid_size=tile_grid_size)
+    return cv2.medianBlur(enhanced, median_ksize)
